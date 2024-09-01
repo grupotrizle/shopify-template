@@ -1,0 +1,81 @@
+window.onSubmitAtcForm=async(form,event)=>{event.preventDefault();const btn=form.querySelector(".btn-atc");btn.innerHTML=`
+        <div class="spinner-border spinner-border-sm" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    `,form.classList.add("loading");const response=await fetch("/cart/add.js",{method:"POST",body:new FormData(form)});form.classList.remove("loading"),btn.innerHTML=window.theme.product.addedToCart,setTimeout(()=>{btn.innerHTML=btn.dataset.textAddToCart},2e3),window.refreshCartContents(response),!btn.hasAttribute("data-upsell-modal")&&(btn.closest(".modal")||bootstrap.Offcanvas.getOrCreateInstance("#offcanvas-cart").show())},window.onClickAtcFormVariant=async(btn,event)=>{const form=btn.closest("form");form.querySelector('[name="id"]').value=btn.dataset.variantId,window.onSubmitAtcForm(form,event)},window.onChangeProductOption=async input=>{const selectedOptions=[];input.closest("form").querySelectorAll(".product-option").forEach(elem=>{elem.type==="radio"?elem.checked&&selectedOptions.push(elem.value):selectedOptions.push(elem.value)});const selectedVariant=window.productVariants.find(variant=>JSON.stringify(variant.options)===JSON.stringify(selectedOptions));console.log(selectedVariant);const btn=input.closest("form").querySelector(".btn-atc");if(selectedVariant){input.closest("form").querySelector('[name="id"]').value=selectedVariant.id,selectedVariant.available?(btn.disabled=!1,btn.innerHTML=window.theme.product.addToCart):(btn.disabled=!0,btn.innerHTML=window.theme.product.soldOut),selectedVariant.compare_at_price?input.closest("#product-content").querySelector(".product-price").innerHTML=`
+                <span class="product-price-compare text-muted me-3">
+                    <span class="visually-hidden">
+                        ${window.theme.product.priceFrom} &nbsp;
+                    </span>
+                    <s>
+                        ${Shopify.formatMoney(selectedVariant.compare_at_price)}
+                    </s>
+                </span>
+                <span class="product-price-final">
+                    <span class="visually-hidden">
+                        ${window.theme.product.priceSale} &nbsp;
+                    </span>
+                    ${Shopify.formatMoney(selectedVariant.price)}
+                </span>
+            `:input.closest("#product-content").querySelector(".product-price").innerHTML=`
+                <span class="product-price-final">
+                    ${Shopify.formatMoney(selectedVariant.price)}
+                </span>
+            `,selectedVariant.available&&selectedVariant.compare_at_price?input.closest("#product-content").querySelector(".product-price").insertAdjacentHTML("beforeend",`
+                <span class="price-badge-sale badge">
+                    ${window.theme.product.save}: ${Math.round((1-selectedVariant.price/selectedVariant.compare_at_price)*100)}%
+                </span>    
+            `):selectedVariant.available||input.closest("#product-content").querySelector(".product-price").insertAdjacentHTML("beforeend",`
+                <span class="price-badge-sold-out badge">
+                    ${window.theme.product.soldOut}
+                </span>
+            `);const url=new URL(window.location);url.searchParams.set("variant",selectedVariant.id),window.history.replaceState({},"",url);const customEvent=new CustomEvent("variantChange.ecomify.product",{detail:selectedVariant});window.dispatchEvent(customEvent)}else btn.disabled=!0,btn.innerHTML=window.theme.product.unavailable;input.closest(".color-swatches")&&(input.closest("form").querySelector(".color-swatches-title").textContent=input.value),affirm&&(document.querySelectorAll(".affirm-as-low-as").forEach(elem=>{elem.setAttribute("data-amount",selectedVariant.price)}),affirm.ui.refresh())},window.onChangeProductItemVariant=(select,event)=>{select.options[select.selectedIndex].dataset.variantImage?.length&&(select.closest(".product-item").querySelector(".product-item-img").src=select.options[select.selectedIndex].dataset.variantImage);const compareAtPrice=select.options[select.selectedIndex].dataset.compareAtPrice,price=select.options[select.selectedIndex].dataset.price;compareAtPrice.length?select.closest(".product-item").querySelector(".product-item-price").innerHTML=`
+            <span class="product-item-price-compare text-muted me-1">
+                <span class="visually-hidden">
+                    ${window.theme.product.priceFrom} &nbsp;
+                </span>
+                <s>
+                    ${Shopify.formatMoney(compareAtPrice)}
+                </s>
+            </span>
+            <span class="product-item-price-final">
+                <span class="visually-hidden">
+                    ${window.theme.product.priceSale} &nbsp;
+                </span>
+                ${Shopify.formatMoney(price)}
+            </span>
+        `:select.closest(".product-item").querySelector(".product-item-price").innerHTML=`
+            <span class="product-item-price-final">
+                ${Shopify.formatMoney(price)}
+            </span>
+        `},window.onClickBuyBtn=btn=>{btn.innerHTML=`
+        <div class="spinner-border spinner-border-sm" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    `;const form=btn.closest("form"),variantId=form.querySelector('[name="id"]').value,qty=Number(form.querySelector('input[name="quantity"]').value||1);window.location.href=`/cart/${variantId}:${qty}`};const initProductGallery=()=>{const wrapper=document.querySelector("#product-gallery");if(!wrapper)return;const main=new Splide(wrapper.querySelector(".main-splide"),{start:Number(wrapper.dataset.start),rewind:!0,arrows:!0,rewindByDrag:!0,pagination:!1}),totalSlides=wrapper.querySelectorAll(".main-splide .splide__slide").length,thumbs=new Splide(wrapper.querySelector(".thumbs-splide"),{start:Number(wrapper.dataset.start),gap:".5rem",rewind:!0,rewindByDrag:!0,pagination:!1,isNavigation:!0,focus:totalSlides>5?"center":0,mediaQuery:"min",breakpoints:{0:{perPage:5,arrows:!0},576:{perPage:5,arrows:!0},768:{perPage:5,arrows:!0},992:{perPage:5,arrows:!0},1200:{perPage:5,arrows:!0},1400:{perPage:5,arrows:!0}}});if(main.on("move",(newIndex,prevIndex)=>{const iframe=wrapper.querySelector(`.splide__slide:nth-child(${prevIndex+1}) iframe`),video=wrapper.querySelector(`.splide__slide:nth-child(${prevIndex+1}) video`);iframe&&(iframe.src=iframe.src),video&&video.pause()}),window.addEventListener("variantChange.ecomify.product",event=>{const selectedVariant=event.detail;selectedVariant.featured_media&&main.go(selectedVariant.featured_media.position-1)},!1),main.sync(thumbs),main.mount(),thumbs.mount(),window.matchMedia("(min-width: 992px)").matches){const navbarHeight=document.querySelector("#shopify-section-navbar.sticky-top").clientHeight||0;wrapper.style.position="sticky",wrapper.style.top=`${navbarHeight+20}px`,wrapper.style.zIndex="1"}GLightbox({selector:'[data-gallery="product-gallery"]',videosWidth:"1290px",loop:!0}).on("slide_changed",({prev,current})=>{main.go(current.index)})};initProductGallery(),document.addEventListener("shopify:section:load",e=>{e.target.querySelector("#product-gallery")&&initProductGallery()});const initInventoryBar=()=>{const wrapper=document.querySelector("#inventory-bar");if(!wrapper)return;const progressBar=wrapper.querySelector(".progress-bar");setTimeout(()=>{progressBar.style.width=progressBar.dataset.width},250)};initInventoryBar(),window.addEventListener("variantChange.ecomify.product",async event=>{const wrapper=document.querySelector("#inventory-bar");if(!wrapper)return;wrapper.style.opacity=".25";const text=await(await fetch(window.location.href)).text(),newDocument=new DOMParser().parseFromString(text,"text/html");document.querySelector("#inventory-bar")?.replaceWith(newDocument.querySelector("#inventory-bar")),initInventoryBar()}),document.addEventListener("shopify:section:load",e=>{e.target.querySelector("#inventory-bar")&&initInventoryBar()});const initUpsellModal=()=>{const btn=document.querySelector(".btn-atc[data-upsell-modal]");btn&&(btn.addEventListener("click",()=>{bootstrap.Modal.getOrCreateInstance("#product-upsell-modal").show()}),document.querySelectorAll("#product-upsell-modal .btn-atc").forEach(btn2=>{btn2.addEventListener("click",()=>{const footerBtn=document.querySelector("#product-upsell-modal .modal-footer .btn");footerBtn.classList.remove(footerBtn.dataset.defaultClass),footerBtn.classList.add(footerBtn.dataset.activeClass)})}),document.querySelector("#product-upsell-modal").addEventListener("hidden.bs.modal",()=>{bootstrap.Offcanvas.getOrCreateInstance("#offcanvas-cart").show()}))};initUpsellModal(),document.addEventListener("shopify:section:load",e=>{e.target.querySelector("#product-upsell-modal")&&initUpsellModal()});const initBoughtTogether=()=>{if(!document.querySelector("#product-bought-together"))return;const setTotalPrice=()=>{let totalCompareAtPrice=0,totalPrice=0;document.querySelectorAll("#product-bought-together .product-item-price").forEach(elem=>{elem.closest(".product-item").querySelector(".bought-together-check:checked")&&(totalCompareAtPrice+=elem.dataset.compareAtPrice.length?Number(elem.dataset.compareAtPrice):Number(elem.dataset.price),totalPrice+=Number(elem.dataset.price))});const totalElem=document.querySelector("#bought-together-total");totalCompareAtPrice>totalPrice?totalElem.innerHTML=`
+                ${totalElem.dataset.textTotalPrice}: 
+                <span class="bought-together-total-compare-price text-muted me-2">
+                    <span class="visually-hidden">
+                        ${window.theme.product.priceFrom} &nbsp;
+                    </span>
+                    <s>
+                        ${Shopify.formatMoney(totalCompareAtPrice)}
+                    </s>
+                </span>
+                <span class="bought-together-total-price text-success">
+                    <span class="visually-hidden">
+                        ${window.theme.product.priceSale} &nbsp;
+                    </span>
+                    ${Shopify.formatMoney(totalPrice)}
+                </span>
+            `:totalElem.innerHTML=`
+                ${totalElem.dataset.textTotalPrice}: 
+                <span class="bought-together-total-price">
+                    ${Shopify.formatMoney(totalPrice)}
+                </span>
+            `};document.querySelectorAll(".bought-together-check").forEach(checkbox=>{checkbox.addEventListener("change",()=>{checkbox.checked?checkbox.closest(".product-item").style.opacity="1":checkbox.closest(".product-item").style.opacity=".5",document.querySelector(".bought-together-check:checked")?document.querySelector("#bought-together-atc").disabled=!1:document.querySelector("#bought-together-atc").disabled=!0,setTotalPrice()})}),document.querySelectorAll('#product-bought-together select[name="id"]').forEach(select=>{select.addEventListener("change",()=>{const compareAtPrice=select.options[select.selectedIndex].dataset.compareAtPrice,price=select.options[select.selectedIndex].dataset.price;select.closest(".product-item").querySelector(".product-item-price").setAttribute("data-compare-at-price",compareAtPrice),select.closest(".product-item").querySelector(".product-item-price").setAttribute("data-price",price),setTotalPrice()})}),document.querySelector("#bought-together-atc").addEventListener("click",async e=>{const btn=e.target;btn.style.width=btn.clientWidth+4+"px",btn.innerHTML=`
+            <div class="spinner-border spinner-border-sm" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        `;const items=[];document.querySelectorAll("#product-bought-together .product-item").forEach(elem=>{elem.querySelector(".bought-together-check:checked")&&items.push({id:Number(elem.querySelector('[name="id"]').value),quantity:1})});const response=await fetch("/cart/add.js",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items})});btn.innerHTML=window.theme.product.addedToCart,setTimeout(()=>{btn.innerHTML=btn.dataset.textAddToCart},2e3),window.refreshCartContents(response),bootstrap.Offcanvas.getOrCreateInstance("#offcanvas-cart").show()})};initBoughtTogether();const initQtyBreaks=()=>{document.querySelectorAll('[name="product-qty-breaks"]').forEach(radio=>{radio.addEventListener("change",()=>{const qty=Number(radio.dataset.qty),qtyField=radio.closest("form").querySelector('[name="quantity"]'),btn=radio.closest("form").querySelector('button[name="add"]');qtyField&&(qtyField.value=qty,setTimeout(()=>{btn.classList.add("animate__animated","animate__shakeX")},250),setTimeout(()=>{btn.classList.remove("animate__animated","animate__shakeX")},1500))})})};initQtyBreaks(),window.addEventListener("variantChange.ecomify.product",async event=>{if(!document.querySelector("#product-qty-breaks"))return;const text=await(await fetch(window.location.href)).text(),newDocument=new DOMParser().parseFromString(text,"text/html");document.querySelector("#product-qty-breaks")?.replaceWith(newDocument.querySelector("#product-qty-breaks")),initQtyBreaks()});const initPrevNextButtons=async()=>{const wrapper=document.querySelector("#product-prev-next");if(!wrapper||!window.matchMedia("(max-width: 1599px)").matches)return;await new Promise(resolve=>setTimeout(resolve,1e3));const threshold=document.querySelector("#product-content .form-wrapper").getBoundingClientRect().bottom+window.scrollY;window.addEventListener("scroll",()=>{window.scrollY>threshold?wrapper.classList.add("show"):wrapper.classList.remove("show")})};initPrevNextButtons();
+//# sourceMappingURL=/cdn/shop/t/52/assets/product.js.map?v=173679613595348199341695648974
